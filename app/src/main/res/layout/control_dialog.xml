@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto"
+	xmlns:tools="http://schemas.android.com/tools"
+	android:id="@+id/dialog_card"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:layout_margin="8dp"
+	app:cardCornerRadius="8dp"
+	app:cardElevation="4dp"
+	app:strokeColor="@android:color/transparent">
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:background="@android:color/transparent"
+		android:orientation="vertical"
+		android:padding="16dp">
+
+		<com.google.android.material.textview.MaterialTextView
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_gravity="center"
+			android:layout_marginBottom="16dp"
+			android:text="@string/tile_label"
+			android:textSize="20sp" />
+
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:orientation="vertical"
+			android:weightSum="10">
+
+			<com.skydoves.colorpickerview.ColorPickerView
+				android:id="@+id/colorPickerView"
+				android:layout_width="200dp"
+				android:layout_height="200dp"
+				android:layout_gravity="center"
+				android:layout_margin="16dp"
+				android:layout_marginTop="20dp"
+				android:layout_marginBottom="10dp"
+				android:layout_weight="6"
+				app:preferenceName="ControlDialogColorPicker"
+				app:selector="@drawable/wheel" />
+		</LinearLayout>
+
+		<com.google.android.material.slider.RangeSlider
+			android:layout_width="match_parent"
+			android:layout_height="match_parent"
+			android:id="@+id/colorPickerBrightness"
+			app:trackColorActive="@drawable/gradient_grayscale"
+			app:trackColorInactive="@drawable/gradient_grayscale" />
+
+		<com.google.android.material.button.MaterialButton
+			android:id="@+id/dialog_close"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_gravity="center"
+			android:text="Close" />
+	</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

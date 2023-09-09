@@ -1,0 +1,18 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+	<!-- Base application theme. -->
+	<style name="Base.Theme.TasmotaQS" parent="Theme.Material3.DynamicColors.DayNight">
+		<!-- Customize your light theme here. -->
+		<!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+	</style>
+
+	<style name="Theme.TasmotaQS" parent="Base.Theme.TasmotaQS" />
+
+	<style name="Theme.Transparent" parent="Theme.TasmotaQS">
+		<item name="android:windowIsTranslucent">true</item>
+		<item name="android:windowBackground">@android:color/transparent</item>
+		<item name="android:windowContentOverlay">@null</item>
+		<item name="android:windowNoTitle">true</item>
+		<item name="android:backgroundDimEnabled">true</item>
+		<item name="colorPrimaryDark">@android:color/transparent</item>
+	</style>
+</resources>
