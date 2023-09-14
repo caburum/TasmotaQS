@@ -3,13 +3,17 @@
 
 	<string name="tile_label">Control lights</string>
 
+	<string name="close">Close</string>
+
 	<string name="action_home">Home</string>
 	<string name="action_settings">Settings</string>
 
 	<string name="toggle_white">Toggle white</string>
-	<string name="white_on">Wt on</string>
-	<string name="white_off">Wt off</string>
+	<string name="white_on_short">Wt on</string>
+	<string name="white_off_short">Wt off</string>
+	<string name="white_label">White: %1$d</string>
 	<string name="toggle_color">Toggle color</string>
-	<string name="color_on">Cl on</string>
-	<string name="color_off">Cl off</string>
+	<string name="color_on_short">Cl on</string>
+	<string name="color_off_short">Cl off</string>
+	<string name="color_label">Color: </string>
 </resources>

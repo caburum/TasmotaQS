@@ -44,18 +44,27 @@
 				app:selector="@drawable/wheel" />
 		</LinearLayout>
 
-		<com.google.android.material.slider.RangeSlider
-			android:layout_width="match_parent"
-			android:layout_height="match_parent"
+		<com.google.android.material.textview.MaterialTextView
+			android:id="@+id/colorPickerLabel"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:text="@string/white_label" />
+
+		<SeekBar
 			android:id="@+id/colorPickerBrightness"
-			app:trackColorActive="@drawable/gradient_grayscale"
-			app:trackColorInactive="@drawable/gradient_grayscale" />
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:max="100"
+			android:min="0"
+			android:progressDrawable="@drawable/seekbar_brightness"
+			android:splitTrack="false"
+			android:thumbTint="@color/white" />
 
 		<com.google.android.material.button.MaterialButton
 			android:id="@+id/dialog_close"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
 			android:layout_gravity="center"
-			android:text="Close" />
+			android:text="@string/close" />
 	</LinearLayout>
 </com.google.android.material.card.MaterialCardView>

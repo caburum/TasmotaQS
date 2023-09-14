@@ -1,5 +1,6 @@
 package com.caburum.tasmotaqs
 
+import android.annotation.SuppressLint
 import android.app.StatusBarManager
 import android.content.Context
 import android.os.Build
@@ -10,10 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,57 +31,60 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
+@SuppressLint("ObsoleteSdkInt")
 @Composable
 fun QuickSettings() {
-	Column(
-		modifier = Modifier.padding(16.dp),
-		verticalArrangement = Arrangement.spacedBy(16.dp),
-	) {
-		val context = LocalContext.current
-		val coroutineScope = rememberCoroutineScope()
-
-		// Whether the tile has been added to the Quick Settings.
-		val addedFlow = remember { context.dataStore.data.map { it[TILE_ADDED] ?: false } }
-		val added by addedFlow.collectAsState(initial = false)
-
-		if (added) {
-			Text(text = "The sample tile has been added to the Quick Settings.")
-		} else if (Build.VERSION.SDK_INT >= 33) {
-			// On API level 33 and above, we can request to the system that our tile should
-			// be added to the Quick Settings.
-			val executor = rememberExecutor()
-			Button(onClick = { addTile(context, executor, coroutineScope) }) {
-				Text(text = "ADD TILE TO QUICK SETTINGS")
-			}
-		} else {
-			Text(text = "Open Quick Settings and add \"Sample Tile\".")
-		}
-
-		// The tile is toggleable. This state represents whether it's currently active or not.
-		val activeFlow = remember { context.dataStore.data.map { it[TILE_ACTIVE] ?: false } }
-		val active by activeFlow.collectAsState(initial = false)
-
-		Text(text = "The state of this switch is synchronized with the tile state.")
-		Row(
-			horizontalArrangement = Arrangement.spacedBy(16.dp),
-			verticalAlignment = Alignment.CenterVertically,
+	Surface() {
+		Column(
+			modifier = Modifier.padding(16.dp),
+			verticalArrangement = Arrangement.spacedBy(16.dp),
 		) {
-			Text(text = "Toggle Active/Inactive")
-			Switch(
-				checked = active,
-				onCheckedChange = { checked ->
-					// Modify the state. The same state is shared between this switch and the tile.
-					coroutineScope.launch {
-						context.dataStore.edit { it[TILE_ACTIVE] = checked }
-					}
-					val componentName = ControlTileService.getComponentName(context)
-					// Request to the system that the tile should catch this state change.
-					TileService.requestListeningState(context, componentName)
-				},
-			)
-		}
+			val context = LocalContext.current
+			val coroutineScope = rememberCoroutineScope()
 
-		Text(if (TasmotaManager().isCorrectNetwork(context)) "on correct network" else "no")
+			// Whether the tile has been added to the Quick Settings.
+			val addedFlow = remember { context.dataStore.data.map { it[TILE_ADDED] ?: false } }
+			val added by addedFlow.collectAsState(initial = false)
+
+			if (added) {
+				Text(text = "The sample tile has been added to the Quick Settings.")
+			} else if (Build.VERSION.SDK_INT >= 33) {
+				// On API level 33 and above, we can request to the system that our tile should
+				// be added to the Quick Settings.
+				val executor = rememberExecutor()
+				Button(onClick = { addTile(context, executor, coroutineScope) }) {
+					Text(text = "ADD TILE TO QUICK SETTINGS")
+				}
+			} else {
+				Text(text = "Open Quick Settings and add \"Sample Tile\".")
+			}
+
+			// The tile is toggleable. This state represents whether it's currently active or not.
+			val activeFlow = remember { context.dataStore.data.map { it[TILE_ACTIVE] ?: false } }
+			val active by activeFlow.collectAsState(initial = false)
+
+			Text(text = "The state of this switch is synchronized with the tile state.")
+			Row(
+				horizontalArrangement = Arrangement.spacedBy(16.dp),
+				verticalAlignment = Alignment.CenterVertically,
+			) {
+				Text(text = "Toggle Active/Inactive")
+				Switch(
+					checked = active,
+					onCheckedChange = { checked ->
+						// Modify the state. The same state is shared between this switch and the tile.
+						coroutineScope.launch {
+							context.dataStore.edit { it[TILE_ACTIVE] = checked }
+						}
+						val componentName = ControlTileService.getComponentName(context)
+						// Request to the system that the tile should catch this state change.
+						TileService.requestListeningState(context, componentName)
+					},
+				)
+			}
+
+			Text(if (TasmotaManager().isCorrectNetwork(context)) "on correct network" else "no")
+		}
 	}
 }
 

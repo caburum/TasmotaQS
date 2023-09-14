@@ -3,17 +3,14 @@ package com.caburum.tasmotaqs
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.drawable.Icon
-import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 private const val TAG = "ControlTileService"
@@ -112,8 +109,8 @@ class ControlTileService : TileService() {
 	private fun updateTile(actives: List<Boolean>) {
 		val tile = qsTile
 		tile.label = getString(R.string.toggle_white)
-		tile.subtitle = getString(if (actives[1]) R.string.white_on else R.string.white_off) +
-			", " + getString(if (actives[0]) R.string.color_on else R.string.color_off)
+		tile.subtitle = getString(if (actives[1]) R.string.white_on_short else R.string.white_off_short) +
+			", " + getString(if (actives[0]) R.string.color_on_short else R.string.color_off_short)
 		tile.icon = if (actives[1]) getIconOn(this) else getIconOff(this)
 		tile.state = if (actives[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
 //		if (Build.VERSION.SDK_INT >= 30) {
