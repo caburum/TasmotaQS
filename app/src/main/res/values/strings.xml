@@ -16,4 +16,8 @@
 	<string name="color_on_short">Cl on</string>
 	<string name="color_off_short">Cl off</string>
 	<string name="color_label">Color: </string>
+
+	<string name="connection_error">Connection error</string>
+	<string name="incorrect_network">Incorrect network</string>
+	<string name="loading">Loading...</string>
 </resources>

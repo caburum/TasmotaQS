@@ -28,6 +28,10 @@ class ControlTileService : TileService() {
 		fun getIconOn(context: Context): Icon {
 			return Icon.createWithResource(context, R.drawable.filled_lightbulb_24)
 		}
+
+		fun getIconError(context: Context): Icon {
+			return Icon.createWithResource(context, R.drawable.error_lightbulb_24)
+		}
 	}
 
 	// The coroutine scope that's available from onCreate to onDestroy.
@@ -54,6 +58,7 @@ class ControlTileService : TileService() {
 	override fun onTileAdded() {
 		super.onTileAdded()
 		Log.d(TAG, "onTileAdded + ${Thread.currentThread().name}")
+		loadingTile()
 		coroutineScope?.launch {
 			dataStore.edit { it[TILE_ADDED] = true }
 		}
@@ -72,11 +77,20 @@ class ControlTileService : TileService() {
 	override fun onStartListening() {
 		super.onStartListening()
 		Log.d(TAG, "onStartListening")
+		loadingTile()
+		val context: Context = this
 		listeningJob = coroutineScope?.launch {
 //			dataStore.data.map { prefs -> prefs[TILE_ACTIVE] ?: false }
 //				.collect { active -> updateTile(active) }
-			TasmotaManager().getOnState {
-				updateTile(it)
+			if (TasmotaManager().isCorrectNetwork(context)) {
+				fetchUpdateTile()
+			} else {
+				val tile = qsTile
+				tile.label = getString(R.string.toggle_white)
+				tile.subtitle = getString(R.string.incorrect_network)
+				tile.icon = getIconError(context)
+				tile.state = Tile.STATE_INACTIVE
+				tile.updateTile()
 			}
 		}
 	}
@@ -90,6 +104,7 @@ class ControlTileService : TileService() {
 	override fun onClick() {
 		super.onClick()
 		Log.d(TAG, "onClick")
+		loadingTile()
 		coroutineScope?.launch {
 //			dataStore.edit { prefs ->
 //				val newState = !(prefs[TILE_ACTIVE] ?: true)
@@ -97,25 +112,51 @@ class ControlTileService : TileService() {
 //				prefs[TILE_ACTIVE] = newState
 //				updateTile(newState)
 //			}
-			val man = TasmotaManager()
-			man.doRequest("power2 toggle") {
-				man.getOnState {
-					updateTile(it)
+			try {
+				TasmotaManager().doRequest("power2 toggle") {
+					fetchUpdateTile()
 				}
+			} catch (e: TasmotaException) {
+				errorTile()
 			}
 		}
 	}
 
-	private fun updateTile(actives: List<Boolean>) {
+	private fun loadingTile() {
+		val tile = qsTile
+		tile.label = getString(R.string.loading)
+		tile.subtitle = getString(R.string.loading)
+		tile.state = Tile.STATE_INACTIVE
+		tile.updateTile()
+	}
+
+	private fun errorTile() {
 		val tile = qsTile
 		tile.label = getString(R.string.toggle_white)
-		tile.subtitle = getString(if (actives[1]) R.string.white_on_short else R.string.white_off_short) +
-			", " + getString(if (actives[0]) R.string.color_on_short else R.string.color_off_short)
-		tile.icon = if (actives[1]) getIconOn(this) else getIconOff(this)
-		tile.state = if (actives[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+		tile.subtitle = getString(R.string.connection_error)
+		tile.icon = getIconError(this)
+		tile.state = Tile.STATE_INACTIVE
+		tile.updateTile()
+	}
+
+	private fun fetchUpdateTile() {
+		try {
+			TasmotaManager().getOnState {
+				val tile = qsTile
+				tile.label = getString(R.string.toggle_white)
+				tile.subtitle =
+					getString(if (it[1]) R.string.white_on_short else R.string.white_off_short) + ", " + getString(
+						if (it[0]) R.string.color_on_short else R.string.color_off_short
+					)
+				tile.icon = if (it[1]) getIconOn(this) else getIconOff(this)
+				tile.state = if (it[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
 //		if (Build.VERSION.SDK_INT >= 30) {
 //			tile.stateDescription = if (actives[0]) "yes" else "no"
 //		}
-		tile.updateTile()
+				tile.updateTile()
+			}
+		} catch (e: TasmotaException) {
+			errorTile()
+		}
 	}
 }

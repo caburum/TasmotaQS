@@ -10,19 +10,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.CoroutineScope
@@ -84,6 +92,38 @@ fun QuickSettings() {
 			}
 
 			Text(if (TasmotaManager().isCorrectNetwork(context)) "on correct network" else "no")
+
+			var allowedNetworksValue by remember { mutableStateOf("") }
+
+			// read the text value from DataStore on composition
+			LaunchedEffect(Unit) {
+				context.dataStore.data.collect { preferences ->
+					allowedNetworksValue = preferences[ALLOWED_NETWORKS]?.joinToString(",") ?: ""
+				}
+			}
+
+			// save the text value to DataStore when the value changes
+			DisposableEffect(allowedNetworksValue) {
+				coroutineScope.launch {
+					context.dataStore.edit { preferences ->
+						preferences[ALLOWED_NETWORKS] = allowedNetworksValue.split(",").toSet()
+					}
+				}
+				onDispose {}
+			}
+
+			TextField(
+				value = allowedNetworksValue,
+				onValueChange = { newText: String -> allowedNetworksValue = newText },
+				keyboardOptions = KeyboardOptions.Default.copy(
+					capitalization = KeyboardCapitalization.None,
+					autoCorrect = false,
+					imeAction = ImeAction.Done
+				),
+				textStyle = MaterialTheme.typography.bodyMedium,
+				modifier = Modifier.padding(16.dp),
+				singleLine = true,
+			)
 		}
 	}
 }
