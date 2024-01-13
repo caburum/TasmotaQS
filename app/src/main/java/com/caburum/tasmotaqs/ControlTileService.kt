@@ -83,7 +83,7 @@ class ControlTileService : TileService() {
 //			dataStore.data.map { prefs -> prefs[TILE_ACTIVE] ?: false }
 //				.collect { active -> updateTile(active) }
 			if (TasmotaManager().isCorrectNetwork(context)) {
-				fetchUpdateTile()
+				fetchUpdateTile(context)
 			} else {
 				val tile = qsTile
 				tile.label = getString(R.string.toggle_white)
@@ -105,6 +105,7 @@ class ControlTileService : TileService() {
 		super.onClick()
 		Log.d(TAG, "onClick")
 		loadingTile()
+		val context: Context = this
 		coroutineScope?.launch {
 //			dataStore.edit { prefs ->
 //				val newState = !(prefs[TILE_ACTIVE] ?: true)
@@ -113,8 +114,8 @@ class ControlTileService : TileService() {
 //				updateTile(newState)
 //			}
 			try {
-				TasmotaManager().doRequest("power2 toggle") {
-					fetchUpdateTile()
+				TasmotaManager().doRequest(context, "power2 toggle") {
+					fetchUpdateTile(context)
 				}
 			} catch (e: TasmotaException) {
 				errorTile()
@@ -139,9 +140,9 @@ class ControlTileService : TileService() {
 		tile.updateTile()
 	}
 
-	private fun fetchUpdateTile() {
+	private fun fetchUpdateTile(context: Context) {
 		try {
-			TasmotaManager().getOnState {
+			TasmotaManager().getOnState(context) {
 				val tile = qsTile
 				tile.label = getString(R.string.toggle_white)
 				tile.subtitle =

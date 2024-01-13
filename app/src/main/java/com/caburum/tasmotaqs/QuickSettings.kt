@@ -10,9 +10,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -28,10 +36,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.map
@@ -42,9 +53,11 @@ import java.util.concurrent.Executors
 @SuppressLint("ObsoleteSdkInt")
 @Composable
 fun QuickSettings() {
-	Surface() {
+	Surface {
 		Column(
-			modifier = Modifier.padding(16.dp),
+			modifier = Modifier
+				.padding(16.dp)
+				.verticalScroll(rememberScrollState()),
 			verticalArrangement = Arrangement.spacedBy(16.dp),
 		) {
 			val context = LocalContext.current
@@ -55,79 +68,161 @@ fun QuickSettings() {
 			val added by addedFlow.collectAsState(initial = false)
 
 			if (added) {
-				Text(text = "The sample tile has been added to the Quick Settings.")
+				Text(text = "The tile has been added to the Quick Settings.")
 			} else if (Build.VERSION.SDK_INT >= 33) {
-				// On API level 33 and above, we can request to the system that our tile should
-				// be added to the Quick Settings.
+				// On API level 33 and above, we can request to the system that our tile should be added to the Quick Settings.
 				val executor = rememberExecutor()
 				Button(onClick = { addTile(context, executor, coroutineScope) }) {
 					Text(text = "ADD TILE TO QUICK SETTINGS")
 				}
 			} else {
-				Text(text = "Open Quick Settings and add \"Sample Tile\".")
+				Text(text = "Open Quick Settings and add tile.")
 			}
 
-			// The tile is toggleable. This state represents whether it's currently active or not.
-			val activeFlow = remember { context.dataStore.data.map { it[TILE_ACTIVE] ?: false } }
-			val active by activeFlow.collectAsState(initial = false)
+//			// The tile is toggleable. This state represents whether it's currently active or not.
+//			val activeFlow = remember { context.dataStore.data.map { it[TILE_ACTIVE] ?: false } }
+//			val active by activeFlow.collectAsState(initial = false)
+//
+//			Text(text = "The state of this switch is synchronized with the tile state.")
+//			Row(
+//				horizontalArrangement = Arrangement.spacedBy(16.dp),
+//				verticalAlignment = Alignment.CenterVertically,
+//			) {
+//				Text(text = "Toggle Active/Inactive")
+//				Switch(
+//					checked = active,
+//					onCheckedChange = { checked ->
+//						// Modify the state. The same state is shared between this switch and the tile.
+//						coroutineScope.launch {
+//							context.dataStore.edit { it[TILE_ACTIVE] = checked }
+//						}
+//						val componentName = ControlTileService.getComponentName(context)
+//						// Request to the system that the tile should catch this state change.
+//						TileService.requestListeningState(context, componentName)
+//					},
+//				)
+//			}
 
-			Text(text = "The state of this switch is synchronized with the tile state.")
-			Row(
-				horizontalArrangement = Arrangement.spacedBy(16.dp),
-				verticalAlignment = Alignment.CenterVertically,
-			) {
-				Text(text = "Toggle Active/Inactive")
-				Switch(
-					checked = active,
-					onCheckedChange = { checked ->
-						// Modify the state. The same state is shared between this switch and the tile.
-						coroutineScope.launch {
-							context.dataStore.edit { it[TILE_ACTIVE] = checked }
-						}
-						val componentName = ControlTileService.getComponentName(context)
-						// Request to the system that the tile should catch this state change.
-						TileService.requestListeningState(context, componentName)
-					},
-				)
-			}
+			Column {
+				Text("Address (IP:port) is required for use")
 
-			Text(if (TasmotaManager().isCorrectNetwork(context)) "on correct network" else "no")
-
-			var allowedNetworksValue by remember { mutableStateOf("") }
-
-			// read the text value from DataStore on composition
-			LaunchedEffect(Unit) {
-				context.dataStore.data.collect { preferences ->
-					allowedNetworksValue = preferences[ALLOWED_NETWORKS]?.joinToString(",") ?: ""
+				SettingRow("Address") {
+					DataStoreTextField(context, coroutineScope,
+						{ p: Preferences -> p[TASMOTA_ADDRESS] ?: "" },
+						{ p: MutablePreferences, value: String -> p[TASMOTA_ADDRESS] = value })
 				}
 			}
 
-			// save the text value to DataStore when the value changes
-			DisposableEffect(allowedNetworksValue) {
-				coroutineScope.launch {
-					context.dataStore.edit { preferences ->
-						preferences[ALLOWED_NETWORKS] = allowedNetworksValue.split(",").toSet()
+			SettingRow("Networks") {
+				Row(
+					horizontalArrangement = Arrangement.spacedBy(0.dp),
+					verticalAlignment = Alignment.CenterVertically
+				) {
+					var correctNetwork by remember { mutableStateOf(false) }
+					OutlinedIconButton(
+						onClick = {
+							correctNetwork = TasmotaManager().isCorrectNetwork(context)
+						},
+						colors = IconButtonDefaults.outlinedIconButtonColors(contentColor = if (correctNetwork) Color.Green else Color.Red)
+					) {
+						Icon(
+							Icons.Filled.Refresh,
+							contentDescription = "Refresh",
+							modifier = Modifier.size(32.dp)
+						)
 					}
+
+					DataStoreTextField(context, coroutineScope,
+						{ p: Preferences -> p[ALLOWED_NETWORKS]?.joinToString(",") ?: "" },
+						{ p: MutablePreferences, value: String ->
+							p[ALLOWED_NETWORKS] = value.split(",").toSet()
+						})
 				}
-				onDispose {}
 			}
 
-			TextField(
-				value = allowedNetworksValue,
-				onValueChange = { newText: String -> allowedNetworksValue = newText },
-				keyboardOptions = KeyboardOptions.Default.copy(
-					capitalization = KeyboardCapitalization.None,
-					autoCorrect = false,
-					imeAction = ImeAction.Done
-				),
-				textStyle = MaterialTheme.typography.bodyMedium,
-				modifier = Modifier.padding(16.dp),
-				singleLine = true,
-			)
+			Column {
+				val enableAuthFlow =
+					remember { context.dataStore.data.map { it[TASMOTA_AUTH_ENABLE] ?: false } }
+				val enableAuth by enableAuthFlow.collectAsState(initial = false)
+				SettingRow("Enable API auth") {
+					Switch(
+						checked = enableAuth,
+						onCheckedChange = { checked ->
+							coroutineScope.launch {
+								context.dataStore.edit { it[TASMOTA_AUTH_ENABLE] = checked }
+							}
+						},
+					)
+				}
+
+				SettingRow("Username") {
+					DataStoreTextField(context, coroutineScope,
+						{ p: Preferences -> p[TASMOTA_AUTH_USER] ?: "" },
+						{ p: MutablePreferences, value: String -> p[TASMOTA_AUTH_USER] = value })
+				}
+
+				SettingRow("Password") {
+					DataStoreTextField(context, coroutineScope,
+						{ p: Preferences -> p[TASMOTA_AUTH_PASS] ?: "" },
+						{ p: MutablePreferences, value: String -> p[TASMOTA_AUTH_PASS] = value })
+				}
+			}
 		}
 	}
 }
 
+@Composable
+private fun DataStoreTextField(
+	context: Context,
+	coroutineScope: CoroutineScope,
+	readCallback: (Preferences) -> String,
+	writeCallback: (MutablePreferences, String) -> Unit
+) {
+	var value by remember { mutableStateOf("") }
+
+	// read the text value from DataStore on composition
+	LaunchedEffect(Unit) {
+		context.dataStore.data.collect { preferences ->
+			value = readCallback(preferences)
+		}
+	}
+
+	// save the value to DataStore when the value changes
+	DisposableEffect(value) {
+		coroutineScope.launch {
+			context.dataStore.edit { preferences ->
+				writeCallback(preferences, value)
+			}
+		}
+		onDispose {}
+	}
+
+	TextField(
+		value = value,
+		onValueChange = { newText: String -> value = newText },
+		keyboardOptions = KeyboardOptions.Default.copy(
+			capitalization = KeyboardCapitalization.None,
+			autoCorrect = false,
+			imeAction = ImeAction.Done
+		),
+		textStyle = MaterialTheme.typography.bodyMedium,
+		modifier = Modifier.padding(16.dp),
+		singleLine = true,
+	)
+}
+
+@Composable
+private fun SettingRow(text: String, content: @Composable () -> Unit) {
+	Row(
+		horizontalArrangement = Arrangement.spacedBy(16.dp),
+		verticalAlignment = Alignment.CenterVertically,
+	) {
+		Text(text)
+		content()
+	}
+}
+
+@SuppressLint("ObsoleteSdkInt")
 @RequiresApi(33)
 private fun addTile(context: Context, executor: Executor, coroutineScope: CoroutineScope) {
 	val statusBarManager = context.getSystemService(StatusBarManager::class.java)

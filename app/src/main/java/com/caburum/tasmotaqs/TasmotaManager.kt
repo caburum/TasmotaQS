@@ -3,6 +3,7 @@ package com.caburum.tasmotaqs
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.StrictMode
 import android.os.StrictMode.ThreadPolicy
@@ -17,9 +18,6 @@ import java.net.URL
 import java.util.stream.Collectors
 
 class TasmotaManager {
-	private var ip = "192.168.123.165"
-	private var port = "80"
-
 	fun isCorrectNetwork(context: Context): Boolean {
 		val emptyStringList: List<String> = emptyList()
 		val allowedNetworks: Collection<String> = runBlocking {
@@ -43,36 +41,52 @@ class TasmotaManager {
 	}
 
 	@Throws(TasmotaException::class)
-	fun doRequest(cmnd: String, callback: (JSONObject) -> Unit) {
+	fun doRequest(context: Context, cmnd: String, callback: (JSONObject) -> Unit) {
 		// fixme:
 		val policy = ThreadPolicy.Builder().permitAll().build()
 		StrictMode.setThreadPolicy(policy)
 
-		val url = URL("http://$ip:$port/cm?cmnd=$cmnd")
+		var address: String
+		var auth: String = "" // will become url query params
+		runBlocking {
+			address = context.dataStore.data.first()[TASMOTA_ADDRESS] ?: ""
+			val enableAuth = context.dataStore.data.first()[TASMOTA_AUTH_ENABLE] ?: false
+			if (enableAuth) {
+				val user = context.dataStore.data.first()[TASMOTA_AUTH_USER] ?: ""
+				val pass = context.dataStore.data.first()[TASMOTA_AUTH_PASS] ?: ""
+				auth = "&user=$user&password=$pass"
+			}
+		}
 
-		val conn = url.openConnection() as HttpURLConnection;
+		val cmndEnc = Uri.encode(cmnd);
+		val urlString = "http://$address/cm?cmnd=$cmndEnc$auth"
+		Log.i("urlString", urlString)
+		val url = URL(urlString)
+
+		val conn = url.openConnection() as HttpURLConnection
 		try {
-			conn.requestMethod = "GET";
-			conn.connectTimeout = 5000;
-			conn.connect();
+			conn.requestMethod = "GET"
+			conn.connectTimeout = 5000
+			conn.connect()
 			val jsonStr = BufferedReader(InputStreamReader(conn.inputStream)).lines().collect(
 				Collectors.joining()
 			)
 			Log.d("doRequest", jsonStr)
 			val json = JSONObject(jsonStr)
-			callback(json);
+			callback(json)
 		} catch (e: Exception) {
-			Log.e("doRequest", "caught exception", e);
-			throw TasmotaException(e);
+			Log.e("doRequest", "caught exception: " + e.message, e)
+			throw TasmotaException(e)
+			// todo: show toast? or somehow show info to user
 		} finally {
-			conn.disconnect();
+			conn.disconnect()
 		}
 	}
 
 	@Throws(TasmotaException::class)
-	fun getOnState(callback: (List<Boolean>) -> Unit) {
-		doRequest("power0") {
-			callback(listOf<Boolean>("ON" == it.get("POWER1"), "ON" == it.get("POWER2")));
+	fun getOnState(context: Context, callback: (List<Boolean>) -> Unit) {
+		doRequest(context, "power0") {
+			callback(listOf<Boolean>("ON" == it.get("POWER1"), "ON" == it.get("POWER2")))
 		}
 	}
 }
