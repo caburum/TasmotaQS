@@ -82,7 +82,7 @@ class ControlTileService : TileService() {
 		listeningJob = coroutineScope?.launch {
 //			dataStore.data.map { prefs -> prefs[TILE_ACTIVE] ?: false }
 //				.collect { active -> updateTile(active) }
-			if (TasmotaManager().isCorrectNetwork(context)) {
+			if (TasmotaManager.isCorrectNetwork(context)) {
 				fetchUpdateTile(context)
 			} else {
 				val tile = qsTile

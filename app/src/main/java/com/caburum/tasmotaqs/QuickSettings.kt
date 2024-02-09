@@ -121,7 +121,7 @@ fun QuickSettings() {
 					var correctNetwork by remember { mutableStateOf(false) }
 					OutlinedIconButton(
 						onClick = {
-							correctNetwork = TasmotaManager().isCorrectNetwork(context)
+							correctNetwork = TasmotaManager.isCorrectNetwork(context)
 						},
 						colors = IconButtonDefaults.outlinedIconButtonColors(contentColor = if (correctNetwork) Color.Green else Color.Red)
 					) {

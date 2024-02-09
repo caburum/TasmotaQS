@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
 	xmlns:app="http://schemas.android.com/apk/res-auto"
-	xmlns:tools="http://schemas.android.com/tools"
 	android:id="@+id/dialog_card"
 	android:layout_width="match_parent"
 	android:layout_height="wrap_content"
@@ -43,12 +42,6 @@
 				app:preferenceName="ControlDialogColorPicker"
 				app:selector="@drawable/wheel" />
 		</LinearLayout>
-
-		<com.google.android.material.textview.MaterialTextView
-			android:id="@+id/colorPickerLabel"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:text="@string/white_label" />
 
 		<SeekBar
 			android:id="@+id/colorPickerBrightness"
