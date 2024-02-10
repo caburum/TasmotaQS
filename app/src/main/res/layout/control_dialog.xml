@@ -20,38 +20,92 @@
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:layout_gravity="center"
-			android:layout_marginBottom="16dp"
 			android:text="@string/tile_label"
-			android:textSize="20sp" />
+			android:textSize="20sp"
+			android:layout_marginBottom="10dp" />
 
 		<LinearLayout
 			android:layout_width="match_parent"
-			android:layout_height="match_parent"
-			android:orientation="vertical"
-			android:weightSum="10">
+			android:layout_height="wrap_content"
+			android:gravity="center"
+			android:layout_marginBottom="10dp">
 
-			<com.skydoves.colorpickerview.ColorPickerView
-				android:id="@+id/colorPickerView"
-				android:layout_width="200dp"
-				android:layout_height="200dp"
-				android:layout_gravity="center"
-				android:layout_margin="16dp"
-				android:layout_marginTop="20dp"
-				android:layout_marginBottom="10dp"
-				android:layout_weight="6"
-				app:preferenceName="ControlDialogColorPicker"
-				app:selector="@drawable/wheel" />
+			<com.google.android.material.button.MaterialButtonToggleGroup
+				android:layout_width="wrap_content"
+				android:layout_height="60dp">
+
+				<com.google.android.material.button.MaterialButton
+					android:id="@+id/colorToggleButton"
+					android:layout_width="wrap_content"
+					style="?attr/materialButtonOutlinedStyle"
+					app:toggleCheckedStateOnClick="false"
+					android:layout_height="match_parent"
+					app:icon="@drawable/outline_lightbulb_24"
+					android:text="@string/toggle_color" />
+
+				<com.google.android.material.button.MaterialButton
+					android:id="@+id/whiteToggleButton"
+					android:layout_width="wrap_content"
+					android:layout_height="match_parent"
+					style="?attr/materialButtonOutlinedStyle"
+					app:toggleCheckedStateOnClick="false"
+					app:icon="@drawable/outline_lightbulb_24"
+					android:text="@string/toggle_white" />
+			</com.google.android.material.button.MaterialButtonToggleGroup>
 		</LinearLayout>
+
+		<com.google.android.material.divider.MaterialDivider
+			android:layout_width="match_parent"
+			android:layout_height="1dp"
+			android:layout_marginBottom="10dp" />
+
+		<SeekBar
+			android:id="@+id/whitePickerTemperature"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:min="153"
+			android:max="500"
+			android:progressDrawable="@drawable/seekbar_temperature"
+			android:splitTrack="false"
+			android:thumb="@drawable/seekbar_thumb"
+			android:layout_marginBottom="10dp" />
+
+		<SeekBar
+			android:id="@+id/whitePickerBrightness"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:min="0"
+			android:max="100"
+			android:progressDrawable="@drawable/seekbar_brightness"
+			android:splitTrack="false"
+			android:thumb="@drawable/seekbar_thumb"
+			android:layout_marginBottom="10dp" />
+
+		<com.google.android.material.divider.MaterialDivider
+			android:layout_width="match_parent"
+			android:layout_height="1dp"
+			android:layout_marginBottom="10dp" />
+
+		<com.skydoves.colorpickerview.ColorPickerView
+			android:id="@+id/colorPickerView"
+			android:layout_width="200dp"
+			android:layout_height="200dp"
+			android:layout_gravity="center"
+			android:layout_weight="6"
+			app:preferenceName="ControlDialogColorPicker"
+			app:selector="@drawable/seekbar_thumb"
+			android:layout_marginBottom="10dp" />
 
 		<SeekBar
 			android:id="@+id/colorPickerBrightness"
 			android:layout_width="fill_parent"
 			android:layout_height="wrap_content"
-			android:max="100"
 			android:min="0"
+			android:max="100"
 			android:progressDrawable="@drawable/seekbar_brightness"
 			android:splitTrack="false"
-			android:thumbTint="@color/white" />
+			android:thumb="@drawable/seekbar_thumb"
+			android:layout_marginBottom="10dp" />
 
 		<com.google.android.material.button.MaterialButton
 			android:id="@+id/dialog_close"

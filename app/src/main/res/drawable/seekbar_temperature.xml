@@ -5,8 +5,8 @@
 			<size android:height="2dp" />
 			<corners android:radius="20dp" />
 			<gradient
-				android:startColor="#000"
-				android:endColor="#FFF" />
+				android:startColor="@color/cw"
+				android:endColor="@color/ww" />
 		</shape>
 	</item>
 	<item android:id="@android:id/secondaryProgress">

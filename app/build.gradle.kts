@@ -15,17 +15,17 @@ android {
 		versionName = "1.0"
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-//		buildConfigField("String", "BUILD_TIME", "\"${System.currentTimeMillis().toString()}\"")
 	}
 
 	buildTypes {
-		release {
-			isMinifyEnabled = false
+		getByName("release") {
+			isShrinkResources = true
+			isMinifyEnabled = true
 			proguardFiles(
 				getDefaultProguardFile("proguard-android-optimize.txt"),
 				"proguard-rules.pro"
 			)
+			signingConfig = signingConfigs.getByName("debug") // temporary
 		}
 	}
 	compileOptions {

@@ -5,8 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.net.wifi.WifiManager
-import android.os.StrictMode
-import android.os.StrictMode.ThreadPolicy
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -18,12 +17,15 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Callable
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.stream.Collectors
 
-
-class TasmotaManager {
+/**
+ * Creates an instance that will share settings values
+ */
+class TasmotaManager(private val context: Context) {
 	companion object {
 		fun isCorrectNetwork(context: Context): Boolean {
 			val emptyStringList: List<String> = emptyList()
@@ -48,25 +50,38 @@ class TasmotaManager {
 		}
 	}
 
+	// todo: ensure not leaking
 	private val executor = Executors.newCachedThreadPool(Executors.defaultThreadFactory())
 
-	fun doRequestAsync(context: Context, cmnd: String): Future<JSONObject> {
-		val future = executor.submit(Callable<JSONObject> {
-			var address: String
-			var auth: String = "" // will become url query params
-			runBlocking {
-				address = context.dataStore.data.first()[TASMOTA_ADDRESS] ?: ""
-				val enableAuth = context.dataStore.data.first()[TASMOTA_AUTH_ENABLE] ?: false
-				if (enableAuth) {
-					val user = context.dataStore.data.first()[TASMOTA_AUTH_USER] ?: ""
-					val pass = context.dataStore.data.first()[TASMOTA_AUTH_PASS] ?: ""
-					auth = "&user=$user&password=$pass"
-				}
-			}
+	private data class UrlSettings(val address: String, val authQuery: String)
 
-			val cmndEnc = Uri.encode(cmnd);
-			val urlString = "http://$address/cm?cmnd=$cmndEnc$auth"
-			Log.i("urlString", urlString)
+	private val urlSettingsFuture: Future<UrlSettings> = executor.submit(Callable {
+		runBlocking {
+			val address = context.dataStore.data.first()[TASMOTA_ADDRESS] ?: ""
+			var auth = "" // will become url query params
+			val enableAuth = context.dataStore.data.first()[TASMOTA_AUTH_ENABLE] ?: false
+			if (enableAuth) {
+				val user = context.dataStore.data.first()[TASMOTA_AUTH_USER] ?: ""
+				val pass = context.dataStore.data.first()[TASMOTA_AUTH_PASS] ?: ""
+				auth = "&user=$user&password=$pass"
+			}
+			return@runBlocking UrlSettings(address, auth)
+		}
+	})
+
+	private var errorToast: Toast? = null
+
+	fun doRequestAsync(cmnd: String): CompletableFuture<JSONObject> {
+		return CompletableFuture.supplyAsync(supplier@{
+			Log.d(
+				"doRequestAsync",
+				"running on ${if (Looper.getMainLooper().thread != Thread.currentThread()) "non-main" else "main"} thread #${Thread.currentThread().id}/${Thread.activeCount()}"
+			)
+
+			val cmndEnc = Uri.encode(cmnd)
+			val urlSettings = urlSettingsFuture.get()
+			val urlString = "http://${urlSettings.address}/cm?cmnd=$cmndEnc${urlSettings.authQuery}"
+			Log.d("urlString", urlString)
 			val url = URL(urlString)
 
 			val conn = url.openConnection() as HttpURLConnection
@@ -77,71 +92,25 @@ class TasmotaManager {
 				val jsonStr = BufferedReader(InputStreamReader(conn.inputStream)).lines().collect(
 					Collectors.joining()
 				)
-				Log.d("doRequest", jsonStr)
-				return@Callable JSONObject(jsonStr)
+//				Log.d("doRequest response", jsonStr)
+				return@supplier JSONObject(jsonStr)
 			} catch (e: Exception) {
 				Log.e("doRequest", "caught exception: " + e.message, e)
 				ContextCompat.getMainExecutor(context).execute {
-					Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
+					errorToast?.cancel() // prevent toast queue from stacking up
+					errorToast = Toast.makeText(context, e.message, Toast.LENGTH_SHORT)
+					errorToast?.show()
 				}
 				throw TasmotaException(e)
 			} finally {
 				conn.disconnect()
 			}
-		})
-
-//		val result: JSONObject = future.get(5000, TimeUnit.SECONDS)
-		return future
+		}, executor)
 	}
 
-
-	@Throws(TasmotaException::class)
-	fun doRequest(context: Context, cmnd: String, callback: (JSONObject) -> Unit) {
-		// fixme:
-		val policy = ThreadPolicy.Builder().permitNetwork().build()
-		StrictMode.setThreadPolicy(policy)
-
-		var address: String
-		var auth: String = "" // will become url query params
-		runBlocking {
-			address = context.dataStore.data.first()[TASMOTA_ADDRESS] ?: ""
-			val enableAuth = context.dataStore.data.first()[TASMOTA_AUTH_ENABLE] ?: false
-			if (enableAuth) {
-				val user = context.dataStore.data.first()[TASMOTA_AUTH_USER] ?: ""
-				val pass = context.dataStore.data.first()[TASMOTA_AUTH_PASS] ?: ""
-				auth = "&user=$user&password=$pass"
-			}
-		}
-
-		val cmndEnc = Uri.encode(cmnd);
-		val urlString = "http://$address/cm?cmnd=$cmndEnc$auth"
-		Log.i("urlString", urlString)
-		val url = URL(urlString)
-
-		val conn = url.openConnection() as HttpURLConnection
-		try {
-			conn.requestMethod = "GET"
-			conn.connectTimeout = 5000
-			conn.connect()
-			val jsonStr = BufferedReader(InputStreamReader(conn.inputStream)).lines().collect(
-				Collectors.joining()
-			)
-			Log.d("doRequest", jsonStr)
-			val json = JSONObject(jsonStr)
-			callback(json)
-		} catch (e: Exception) {
-			Log.e("doRequest", "caught exception: " + e.message, e)
-			Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
-			throw TasmotaException(e)
-		} finally {
-			conn.disconnect()
-		}
-	}
-
-	@Throws(TasmotaException::class)
-	fun getOnState(context: Context, callback: (List<Boolean>) -> Unit) {
-		doRequest(context, "power0") {
-			callback(listOf<Boolean>("ON" == it.get("POWER1"), "ON" == it.get("POWER2")))
+	fun getOnState(): CompletableFuture<List<Boolean>> {
+		return doRequestAsync("power0").thenApplyAsync {
+			return@thenApplyAsync listOf("ON" == it.get("POWER1"), "ON" == it.get("POWER2"))
 		}
 	}
 }

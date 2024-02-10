@@ -4,6 +4,7 @@
 	<string name="tile_label">Control lights</string>
 
 	<string name="close">Close</string>
+	<string name="refresh">Refresh</string>
 
 	<string name="action_home">Home</string>
 	<string name="action_settings">Settings</string>
@@ -11,13 +12,26 @@
 	<string name="toggle_white">Toggle white</string>
 	<string name="white_on_short">Wt on</string>
 	<string name="white_off_short">Wt off</string>
-	<string name="white_label">White: %1$d</string>
+	<!--	<string name="white_label">White: %1$d</string>-->
 	<string name="toggle_color">Toggle color</string>
 	<string name="color_on_short">Cl on</string>
 	<string name="color_off_short">Cl off</string>
-	<string name="color_label">Color: </string>
+	<!--	<string name="color_label">Color: </string>-->
 
 	<string name="connection_error">Connection error</string>
 	<string name="incorrect_network">Incorrect network</string>
-	<string name="loading">Loading...</string>
+	<string name="loading">Loading…</string>
+
+	<string name="overlay_permission">Please grant overlay permission to use dialog</string>
+
+	<string name="qs_added">The tile has been added to Quick Settings.</string>
+	<string name="qs_add_button">ADD TILE TO QUICK SETTINGS</string>
+	<string name="qs_add_open">Open Quick Settings and add tile.</string>
+
+	<string name="settings_address">Address</string>
+	<string name="settings_address_desc">Address (IP:port) is required for use</string>
+	<string name="settings_networks">Networks</string>
+	<string name="settings_auth">Enable API auth</string>
+	<string name="settings_username">Username</string>
+	<string name="settings_password">Password</string>
 </resources>

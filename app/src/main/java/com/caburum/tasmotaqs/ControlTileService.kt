@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 private const val TAG = "ControlTileService"
 
@@ -105,22 +106,14 @@ class ControlTileService : TileService() {
 		super.onClick()
 		Log.d(TAG, "onClick")
 		loadingTile()
-		val context: Context = this
-		coroutineScope?.launch {
-//			dataStore.edit { prefs ->
-//				val newState = !(prefs[TILE_ACTIVE] ?: true)
-//				Log.d(TAG, "New state: $newState")
-//				prefs[TILE_ACTIVE] = newState
-//				updateTile(newState)
-//			}
-			try {
-				TasmotaManager().doRequest(context, "power2 toggle") {
-					fetchUpdateTile(context)
+		TasmotaManager(this).doRequestAsync("power2 toggle")
+			.whenComplete { it: JSONObject?, ex: Throwable? ->
+				if (ex != null || it == null) {
+					errorTile()
+				} else {
+					fetchUpdateTile(this)
 				}
-			} catch (e: TasmotaException) {
-				errorTile()
 			}
-		}
 	}
 
 	private fun loadingTile() {
@@ -141,23 +134,19 @@ class ControlTileService : TileService() {
 	}
 
 	private fun fetchUpdateTile(context: Context) {
-		try {
-			TasmotaManager().getOnState(context) {
+		TasmotaManager(context).getOnState().whenComplete { it: List<Boolean>?, ex: Throwable? ->
+			if (ex != null || it == null) {
+				errorTile()
+			} else {
 				val tile = qsTile
 				tile.label = getString(R.string.toggle_white)
 				tile.subtitle =
-					getString(if (it[1]) R.string.white_on_short else R.string.white_off_short) + ", " + getString(
-						if (it[0]) R.string.color_on_short else R.string.color_off_short
-					)
+					getString(if (it[1]) R.string.white_on_short else R.string.white_off_short) +
+						", " + getString(if (it[0]) R.string.color_on_short else R.string.color_off_short)
 				tile.icon = if (it[1]) getIconOn(this) else getIconOff(this)
 				tile.state = if (it[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-//		if (Build.VERSION.SDK_INT >= 30) {
-//			tile.stateDescription = if (actives[0]) "yes" else "no"
-//		}
 				tile.updateTile()
 			}
-		} catch (e: TasmotaException) {
-			errorTile()
 		}
 	}
 }
