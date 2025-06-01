@@ -35,15 +35,21 @@ class TasmotaManager(private val context: Context) {
 
 			val connectivityManager =
 				context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-			val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+			Log.d("isCorrectNetworkAN", connectivityManager.activeNetwork.toString())
 
 			val network = connectivityManager.activeNetwork
+				?: return false
+
 			val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
 
 			if (networkCapabilities != null && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+				val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
 				val wifiInfo = wifiManager.connectionInfo
-				Log.d("isCorrectNetwork", wifiInfo.ssid)
-				return allowedNetworks.contains(wifiInfo.ssid.removeSurrounding("\""))
+				Log.d("isCorrectNetworkWI", wifiInfo.toString())
+				val ssid = wifiInfo.ssid
+				Log.d("isCorrectNetworkSS", ssid)
+				return allowedNetworks.contains(ssid.removeSurrounding("\""))
 			}
 
 			return false
