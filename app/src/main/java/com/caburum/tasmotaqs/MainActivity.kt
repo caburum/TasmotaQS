@@ -1,5 +1,6 @@
 package com.caburum.tasmotaqs
 
+import WifiMonitorManager
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.StatusBarManager
@@ -132,7 +133,19 @@ class MainActivity : ComponentActivity() {
 								horizontalArrangement = Arrangement.spacedBy(0.dp),
 								verticalAlignment = Alignment.CenterVertically
 							) {
-								var correctNetwork by remember { mutableStateOf(false) }
+								var isConnectedToAllowedNetwork by remember {
+									mutableStateOf(WifiMonitorManager.isCurrentlyConnectedToAllowedNetwork())
+								}
+								DisposableEffect(WifiMonitorManager) { // Key on WifiMonitorManager or a stable instance
+									val listener = { newStatus: Boolean ->
+										isConnectedToAllowedNetwork = newStatus
+									}
+									WifiMonitorManager.addConnectionStatusListener(listener)
+
+									onDispose {
+										WifiMonitorManager.removeConnectionStatusListener(listener)
+									}
+								}
 								OutlinedIconButton(
 									onClick = {
 										val wifiPermissions =
@@ -140,10 +153,10 @@ class MainActivity : ComponentActivity() {
 										if (!hasPermissions(wifiPermissions)) {
 											multiplePermissionLauncher!!.launch(wifiPermissions)
 										}
-										correctNetwork = TasmotaManager.isCorrectNetwork(context)
+										// todo: make automatic somehow
 									},
 									colors = IconButtonDefaults.outlinedIconButtonColors(
-										contentColor = if (correctNetwork) Color.Green else Color.Red
+										contentColor = if (isConnectedToAllowedNetwork) Color.Green else Color.Red
 									)
 								) {
 									Icon(

@@ -3,10 +3,8 @@ package com.caburum.tasmotaqs
 import android.app.Dialog
 import android.content.Intent
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -19,6 +17,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.skydoves.colorpickerview.ColorEnvelope
@@ -32,6 +33,10 @@ import kotlin.properties.Delegates
 
 
 class DialogActivity : ComponentActivity() {
+	companion object {
+		private const val TAG = "DialogActivity"
+	}
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
@@ -41,11 +46,12 @@ class DialogActivity : ComponentActivity() {
 			val startForResult =
 				registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 			val intent =
-				Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+				Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri())
 			startForResult.launch(intent)
 		}
 
 		val tasmotaManager = TasmotaManager(this)
+		val mainThreadExecutor = ContextCompat.getMainExecutor(this)
 
 		// load initial state
 		var initialWhitePower = false
@@ -60,7 +66,7 @@ class DialogActivity : ComponentActivity() {
 			initialWhiteTemperature = response.optInt("CT", 153)
 			initialWhiteBrightness = response.optInt("Dimmer2")
 			initialColorPower = response.optString("POWER1") == "ON"
-			initialColor = Color.parseColor("#" + response.optString("Color", "FFFFFF").slice(0..5))
+			initialColor = ("#" + response.optString("Color", "FFFFFF").slice(0..5)).toColorInt()
 			initialColorBrightness = response.optInt("Dimmer1")
 		} catch (_: Exception) {
 			// doRequestAsync will have shown an error toast already
@@ -86,7 +92,6 @@ class DialogActivity : ComponentActivity() {
 
 		// store power state locally as we know which behaviors will cause it to turn on
 		// under the assumption that while controlling lights with this dialog, it won't be changed elsewhere
-		// fixme: icon and checked state are desynced on first click only
 		var whitePower by Delegates.observable(initialWhitePower) { _, _, it ->
 			whiteToggleButton.icon = if (it) iconOn else iconOff
 			whiteToggleButton.isChecked = it
@@ -100,15 +105,15 @@ class DialogActivity : ComponentActivity() {
 
 		whiteToggleButton.setOnClickListener {
 			val state = !whiteToggleButton.isChecked
-			tasmotaManager.doRequestAsync("power2 $state").thenAccept {
+			tasmotaManager.doRequestAsync("power2 $state").thenAcceptAsync({
 				whitePower = it.optString("POWER2") == "ON"
-			}
+			}, mainThreadExecutor)
 		}
 		colorToggleButton.setOnClickListener {
 			val state = !colorToggleButton.isChecked
-			tasmotaManager.doRequestAsync("power1 $state").thenAccept {
+			tasmotaManager.doRequestAsync("power1 $state").thenAcceptAsync({
 				colorPower = it.optString("POWER1") == "ON"
-			}
+			}, mainThreadExecutor)
 		}
 
 		val whitePickerTemperature = dialog.findViewById<SeekBar>(R.id.whitePickerTemperature)
@@ -126,9 +131,9 @@ class DialogActivity : ComponentActivity() {
 		val wwValue = whitePickerTemperature.max.toFloat()
 
 		val debounceWhitePickerTemperature = debounce(lifecycleScope) { progress: Int ->
-			tasmotaManager.doRequestAsync("CT $progress").thenRun {
+			tasmotaManager.doRequestAsync("CT $progress").thenRunAsync({
 				whitePower = true
-			}
+			}, mainThreadExecutor)
 		}
 
 		fun updateWhiteBrightnessTemperature(progress: Int) {
@@ -156,8 +161,9 @@ class DialogActivity : ComponentActivity() {
 		updateWhiteBrightnessTemperature(initialWhiteTemperature) // initialize color temperature
 
 		val debounceWhitePickerBrightness = debounce(lifecycleScope) { progress: Int ->
-			tasmotaManager.doRequestAsync("Dimmer2 $progress")
-			whitePower = true
+			tasmotaManager.doRequestAsync("Dimmer2 $progress").thenRunAsync({
+				whitePower = true
+			}, mainThreadExecutor)
 		}
 		whitePickerBrightness.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 			override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -178,9 +184,9 @@ class DialogActivity : ComponentActivity() {
 				.mutate() as GradientDrawable
 
 		val debounceColorPickerView = debounce(lifecycleScope) { cmnd: String ->
-			tasmotaManager.doRequestAsync(cmnd).thenRun {
+			tasmotaManager.doRequestAsync(cmnd).thenRunAsync({
 				colorPower = true
-			}
+			}, mainThreadExecutor)
 		}
 		var colorPickerViewInitCount =
 			0 // listener is fired 2 times on load, so skip sending a request & breaking stuff
@@ -202,9 +208,9 @@ class DialogActivity : ComponentActivity() {
 		})
 
 		val debounceColorPickerBrightness = debounce(lifecycleScope) { progress: Int ->
-			tasmotaManager.doRequestAsync("HSBColor3 $progress").thenRun {
+			tasmotaManager.doRequestAsync("HSBColor3 $progress").thenRunAsync({
 				colorPower = true
-			}
+			}, mainThreadExecutor)
 		}
 		colorPickerBrightness.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
 			override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -223,7 +229,7 @@ class DialogActivity : ComponentActivity() {
 		dialog.window?.apply {
 			attributes = layoutParams
 			setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-			setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+			setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
 		}
 
 		dialog.show()

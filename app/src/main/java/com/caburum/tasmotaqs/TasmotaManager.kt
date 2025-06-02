@@ -1,10 +1,7 @@
 package com.caburum.tasmotaqs
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.net.Uri
-import android.net.wifi.WifiManager
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
@@ -26,36 +23,6 @@ import java.util.stream.Collectors
  * Creates an instance that will share settings values
  */
 class TasmotaManager(private val context: Context) {
-	companion object {
-		fun isCorrectNetwork(context: Context): Boolean {
-			val emptyStringList: List<String> = emptyList()
-			val allowedNetworks: Collection<String> = runBlocking {
-				context.dataStore.data.first()[ALLOWED_NETWORKS] ?: emptyStringList
-			}
-
-			val connectivityManager =
-				context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-			Log.d("isCorrectNetworkAN", connectivityManager.activeNetwork.toString())
-
-			val network = connectivityManager.activeNetwork
-				?: return false
-
-			val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
-
-			if (networkCapabilities != null && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-				val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
-				val wifiInfo = wifiManager.connectionInfo
-				Log.d("isCorrectNetworkWI", wifiInfo.toString())
-				val ssid = wifiInfo.ssid
-				Log.d("isCorrectNetworkSS", ssid)
-				return allowedNetworks.contains(ssid.removeSurrounding("\""))
-			}
-
-			return false
-		}
-	}
-
 	// todo: ensure not leaking
 	private val executor = Executors.newCachedThreadPool(Executors.defaultThreadFactory())
 

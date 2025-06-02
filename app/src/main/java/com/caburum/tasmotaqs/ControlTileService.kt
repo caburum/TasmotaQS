@@ -1,5 +1,6 @@
 package com.caburum.tasmotaqs
 
+import WifiMonitorManager
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.drawable.Icon
@@ -12,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 
 private const val TAG = "ControlTileService"
@@ -35,11 +37,15 @@ class ControlTileService : TileService() {
 		}
 	}
 
-	// The coroutine scope that's available from onCreate to onDestroy.
 	private var coroutineScope: CoroutineScope? = null
+	private var isConnectedToAllowedNetwork: Boolean = false
 
-	// The job for observing the state change. Available from onStartListening to onStopListening.
-	private var listeningJob: Job? = null
+	private val wifiConnectionListener: (Boolean) -> Unit = { isAllowed ->
+		Log.d(TAG, "WifiMonitorManager reported: isConnectedToAllowedNetwork = $isAllowed")
+		isConnectedToAllowedNetwork = isAllowed
+
+		updateTileBasedOnCurrentWifiAndDeviceState()
+	}
 
 	override fun onCreate() {
 		super.onCreate()
@@ -53,9 +59,6 @@ class ControlTileService : TileService() {
 		coroutineScope?.cancel()
 	}
 
-	// Called when the tile is added to the Quick Settings by the user.
-	// Note that this won't be called when the tile was added by
-	// [StatusBarManager.requestAddTileService()].
 	override fun onTileAdded() {
 		super.onTileAdded()
 		Log.d(TAG, "onTileAdded + ${Thread.currentThread().name}")
@@ -73,59 +76,73 @@ class ControlTileService : TileService() {
 		}
 	}
 
-	// Called when the tile should start listening to some state change that it needs to react to.
-	// Typically, this is invoked when the app calls [TileService.requestListeningState].
 	override fun onStartListening() {
 		super.onStartListening()
 		Log.d(TAG, "onStartListening")
 		loadingTile()
-		val context: Context = this
-		listeningJob = coroutineScope?.launch {
-//			dataStore.data.map { prefs -> prefs[TILE_ACTIVE] ?: false }
-//				.collect { active -> updateTile(active) }
-			if (TasmotaManager.isCorrectNetwork(context)) {
-				fetchUpdateTile(context)
-			} else {
-				val tile = qsTile
-				tile.label = getString(R.string.toggle_white)
-				tile.subtitle = getString(R.string.incorrect_network)
-				tile.icon = getIconError(context)
-				tile.state = Tile.STATE_INACTIVE
-				tile.updateTile()
-			}
-		}
+		WifiMonitorManager.addConnectionStatusListener(wifiConnectionListener)
 	}
 
 	override fun onStopListening() {
 		super.onStopListening()
 		Log.d(TAG, "onStopListening")
-		listeningJob?.cancel()
+		WifiMonitorManager.removeConnectionStatusListener(wifiConnectionListener)
 	}
+
+	private fun updateTileBasedOnCurrentWifiAndDeviceState() {
+		if (isConnectedToAllowedNetwork) {
+			Log.d(TAG, "Background update: On allowed network, fetching device state.")
+			fetchUpdateTile(this)
+		} else {
+			Log.w(
+				TAG,
+				"Background update: Not on allowed network, setting tile to 'incorrect network' state."
+			)
+			val tile = qsTile ?: return
+			tile.label = getString(R.string.toggle_white)
+			tile.subtitle = getString(R.string.incorrect_network)
+			tile.icon = getIconError(this)
+			tile.state = Tile.STATE_INACTIVE
+			tile.updateTile()
+		}
+	}
+
+	private val tasmotaOperationMutex = Mutex()
 
 	override fun onClick() {
 		super.onClick()
-		Log.d(TAG, "onClick")
+		Log.d(TAG, "onClick initiated by user.")
 		loadingTile()
-		TasmotaManager(this).doRequestAsync("power2 toggle")
-			.whenComplete { it: JSONObject?, ex: Throwable? ->
-				if (ex != null || it == null) {
-					errorTile()
-				} else {
-					fetchUpdateTile(this)
+		if (tasmotaOperationMutex.tryLock()) {
+			TasmotaManager(this).doRequestAsync("power2 toggle")
+				.whenComplete { it: JSONObject?, ex: Throwable? ->
+					coroutineScope?.launch {
+						if (ex != null || it == null) {
+							Log.e(TAG, "onClick Tasmota request failed.", ex)
+							errorTile()
+						} else {
+							Log.d(
+								TAG,
+								"onClick Tasmota request successful, fetching updated state."
+							)
+							fetchUpdateTile(this@ControlTileService)
+						}
+						tasmotaOperationMutex.unlock()
+					}
 				}
-			}
+		}
 	}
 
 	private fun loadingTile() {
-		val tile = qsTile
-		tile.label = getString(R.string.loading)
+		val tile = qsTile ?: return
+//		tile.label = getString(R.string.toggle_white)
 		tile.subtitle = getString(R.string.loading)
-		tile.state = Tile.STATE_INACTIVE
+//		tile.state = Tile.STATE_INACTIVE
 		tile.updateTile()
 	}
 
 	private fun errorTile() {
-		val tile = qsTile
+		val tile = qsTile ?: return
 		tile.label = getString(R.string.toggle_white)
 		tile.subtitle = getString(R.string.connection_error)
 		tile.icon = getIconError(this)
@@ -134,18 +151,31 @@ class ControlTileService : TileService() {
 	}
 
 	private fun fetchUpdateTile(context: Context) {
+		Log.d(TAG, "fetchUpdateTile: Attempting to get device state.")
 		TasmotaManager(context).getOnState().whenComplete { it: List<Boolean>?, ex: Throwable? ->
-			if (ex != null || it == null) {
-				errorTile()
-			} else {
-				val tile = qsTile
-				tile.label = getString(R.string.toggle_white)
-				tile.subtitle =
-					getString(if (it[1]) R.string.white_on_short else R.string.white_off_short) +
-						", " + getString(if (it[0]) R.string.color_on_short else R.string.color_off_short)
-				tile.icon = if (it[1]) getIconOn(this) else getIconOff(this)
-				tile.state = if (it[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-				tile.updateTile()
+			coroutineScope?.launch {
+				if (ex != null || it == null) {
+					Log.e(TAG, "fetchUpdateTile: Tasmota getOnState failed.", ex)
+					errorTile()
+				} else {
+					try {
+						Log.d(TAG, "fetchUpdateTile: Tasmota getOnState successful. States: $it")
+						val tile = qsTile ?: return@launch
+						tile.label = getString(R.string.toggle_white)
+						tile.subtitle =
+							getString(if (it[1]) R.string.white_on_short else R.string.white_off_short) +
+								", " + getString(if (it[0]) R.string.color_on_short else R.string.color_off_short)
+						tile.icon = null // temp fix for icon not updating
+						tile.state = if (it[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+						tile.updateTile()
+						tile.icon =
+							if (it[1]) getIconOn(this@ControlTileService) else getIconOff(this@ControlTileService)
+						tile.updateTile()
+					} catch (e: IndexOutOfBoundsException) {
+						Log.e(TAG, "fetchUpdateTile: Error processing device states.", e)
+						errorTile()
+					}
+				}
 			}
 		}
 	}
