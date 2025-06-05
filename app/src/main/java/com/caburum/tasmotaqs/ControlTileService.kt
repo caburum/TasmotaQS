@@ -26,10 +26,12 @@ class ControlTileService : TileService() {
 
 		fun getIconOff(context: Context): Icon {
 			return Icon.createWithResource(context, R.drawable.outline_lightbulb_24)
+//			return Icon.createWithResource(context, R.drawable.qs_lightbulb_icon_off)
 		}
 
 		fun getIconOn(context: Context): Icon {
 			return Icon.createWithResource(context, R.drawable.filled_lightbulb_24)
+//			return Icon.createWithResource(context, R.drawable.qs_lightbulb_icon_on)
 		}
 
 		fun getIconError(context: Context): Icon {
@@ -99,7 +101,7 @@ class ControlTileService : TileService() {
 				"Background update: Not on allowed network, setting tile to 'incorrect network' state."
 			)
 			val tile = qsTile ?: return
-			tile.label = getString(R.string.toggle_white)
+//			tile.label = getString(R.string.toggle_white)
 			tile.subtitle = getString(R.string.incorrect_network)
 			tile.icon = getIconError(this)
 			tile.state = Tile.STATE_INACTIVE
@@ -143,7 +145,7 @@ class ControlTileService : TileService() {
 
 	private fun errorTile() {
 		val tile = qsTile ?: return
-		tile.label = getString(R.string.toggle_white)
+//		tile.label = getString(R.string.toggle_white)
 		tile.subtitle = getString(R.string.connection_error)
 		tile.icon = getIconError(this)
 		tile.state = Tile.STATE_INACTIVE
@@ -161,15 +163,17 @@ class ControlTileService : TileService() {
 					try {
 						Log.d(TAG, "fetchUpdateTile: Tasmota getOnState successful. States: $it")
 						val tile = qsTile ?: return@launch
-						tile.label = getString(R.string.toggle_white)
+//						tile.label = getString(R.string.toggle_white)
 						tile.subtitle =
 							getString(if (it[1]) R.string.white_on_short else R.string.white_off_short) +
 								", " + getString(if (it[0]) R.string.color_on_short else R.string.color_off_short)
-						tile.icon = null // temp fix for icon not updating
+//						tile.icon = null // makes tile temporarily unavailable
+						tile.icon =
+							if (it[1]) getIconOn(context) else getIconOff(context)
 						tile.state = if (it[1]) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
 						tile.updateTile()
 						tile.icon =
-							if (it[1]) getIconOn(this@ControlTileService) else getIconOff(this@ControlTileService)
+							if (it[1]) getIconOn(context) else getIconOff(context)
 						tile.updateTile()
 					} catch (e: IndexOutOfBoundsException) {
 						Log.e(TAG, "fetchUpdateTile: Error processing device states.", e)

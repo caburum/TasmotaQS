@@ -1,0 +1,39 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:aapt="http://schemas.android.com/aapt">
+	<aapt:attr name="android:drawable">
+		<vector
+			android:name="vector"
+			android:width="24dp"
+			android:height="24dp"
+			android:viewportWidth="24"
+			android:viewportHeight="24">
+			<path
+				android:name="icon_off"
+				android:fillColor="@android:color/white"
+				android:pathData="M 9 21 C 9 21.55 9.45 22 10 22 L 14 22 C 14.55 22 15 21.55 15 21 L 15 20 L 9 20 L 9 21 Z M 12 2 C 8.14 2 5 5.14 5 9 C 5 11.38 6.19 13.47 8 14.74 L 8 17 C 8 17.55 8.45 18 9 18 L 15 18 C 15.55 18 16 17.55 16 17 L 16 14.74 C 17.81 13.47 19 11.38 19 9 C 19 5.14 15.86 2 12 2 Z M 14.85 13.1 L 14 13.7 L 14 16 L 10 16 L 10 13.7 L 9.15 13.1 C 7.8 12.16 7 10.63 7 9 C 7 6.24 9.24 4 12 4 C 14.76 4 17 6.24 17 9 C 17 10.63 16.2 12.16 14.85 13.1 Z" />
+			<clip-path
+				android:name="mask"
+				android:pathData="M 0 16 L 24 16 L 24 24 L 0 24 Z" />
+			<path
+				android:name="icon_on"
+				android:fillColor="@android:color/white"
+				android:pathData="M 9 21 C 9 21.5 9.4 22 10 22 L 14 22 C 14.6 22 15 21.5 15 21 L 15 20 L 9 20 L 9 21 Z M 12 2 C 8.1 2 5 5.1 5 9 C 5 11.4 6.2 13.5 8 14.7 L 8 17 C 8 17.5 8.4 18 9 18 L 15 18 C 15.6 18 16 17.5 16 17 L 16 14.7 C 17.8 13.4 19 11.3 19 9 C 19 5.1 15.9 2 12 2 Z" />
+		</vector>
+	</aapt:attr>
+	<target android:name="mask">
+		<aapt:attr name="android:animation">
+			<set android:ordering="together">
+				<objectAnimator
+					android:duration="417"
+					android:propertyName="pathData"
+					android:valueFrom="M 0 16 L 24 16 L 24 24 L 0 24 Z"
+					android:valueTo="M 0 4 L 24 4 L 24 24 L 0 24 Z"
+					android:valueType="pathType">
+					<aapt:attr name="android:interpolator">
+						<pathInterpolator android:pathData="M 0.0,0.0 c0.4,0 0.1,1 1.0,1.0" />
+					</aapt:attr>
+				</objectAnimator>
+			</set>
+		</aapt:attr>
+	</target>
+</animated-vector>
