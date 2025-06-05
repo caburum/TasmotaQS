@@ -35,7 +35,6 @@ object WifiMonitorManager {
 
 	private val listenersLock = Any()
 
-	// Simplified callback: (isNowConnectedToAllowedNetwork: Boolean) -> Unit
 	private val connectionStatusListeners = mutableSetOf<(Boolean) -> Unit>()
 
 	@Volatile
@@ -62,6 +61,7 @@ object WifiMonitorManager {
 		if (connectivityManager == null) {
 			synchronized(this) {
 				if (connectivityManager == null) {
+					Log.i(TAG, "Initializing WifiMonitorManager.")
 					this.dataStore = applicationContext.dataStore
 					connectivityManager =
 						applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -70,12 +70,14 @@ object WifiMonitorManager {
 					refreshAllowedNetworksAndListen(applicationContext)
 				}
 			}
+		} else {
+			shutdown()
+			refreshAllowedNetworksAndListen(applicationContext)
 		}
 	}
 
 	private fun refreshAllowedNetworksAndListen(appContext: Context) {
 		managerScope.launch {
-//			fetchAllowedNetworksFromDataStore() // Fetches and sets allowedNetworkSsidsInternal
 			dataStore!!.data
 				.map { preferences ->
 					preferences[ALLOWED_NETWORKS]?.toSet() ?: emptySet()
@@ -98,36 +100,6 @@ object WifiMonitorManager {
 		}
 	}
 
-//	private suspend fun fetchAllowedNetworksFromDataStore() {
-//		val currentDataStore = dataStore
-//		if (currentDataStore == null) {
-//			Log.w(TAG, "DataStore not initialized. Using empty allowed networks list.")
-//			allowedNetworkSsidsInternal = emptySet()
-//			return
-//		}
-//		try {
-//			val preferences = currentDataStore.data.first()
-//			allowedNetworkSsidsInternal = preferences[ALLOWED_NETWORKS]?.toSet() ?: emptySet()
-//			Log.i(TAG, "Fetched allowed networks from DataStore: $allowedNetworkSsidsInternal")
-//		} catch (e: Exception) {
-//			Log.e(TAG, "Error fetching allowed networks from DataStore. Using previous or empty.", e)
-//			// Keep existing allowedNetworkSsidsInternal or set to empty if it's the first time
-//			if (allowedNetworkSsidsInternal.isEmpty()) { // Check if it was ever populated
-//				allowedNetworkSsidsInternal = emptySet()
-//			}
-//		}
-//		// After fetching, immediately re-evaluate current connection status
-//		evaluateConnectionAgainstLoadedAllowedNetworks()
-//	}
-
-//	// Call this if you need to manually trigger a refresh of allowed networks
-//	// (e.g., after user changes settings in the app)
-//	fun triggerAllowedNetworksRefresh() {
-//		managerScope.launch {
-//			fetchAllowedNetworksFromDataStore()
-//		}
-//	}
-
 	private fun evaluateConnectionAgainstLoadedAllowedNetworks() {
 		isConnectedToAllowedNetwork =
 			currentConnectedSsid != null && allowedNetworkSsidsInternal.contains(
@@ -147,7 +119,14 @@ object WifiMonitorManager {
 			!= PackageManager.PERMISSION_GRANTED
 		) {
 			Log.w(TAG, "ACCESS_FINE_LOCATION permission not granted.")
-			// isConnectedToAllowedNetwork will remain false if SSID cannot be read
+		}
+		if (ContextCompat.checkSelfPermission(
+				appContext,
+				Manifest.permission.ACCESS_BACKGROUND_LOCATION
+			)
+			!= PackageManager.PERMISSION_GRANTED
+		) {
+			Log.w(TAG, "ACCESS_BACKGROUND_LOCATION permission not granted.")
 		}
 
 		val networkRequest = NetworkRequest.Builder()
@@ -188,42 +167,31 @@ object WifiMonitorManager {
 	}
 
 	private fun handleCapabilitiesChanged(networkCapabilities: NetworkCapabilities) {
-		var newSsid: String? = null
 		if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
 			val transportInfo = networkCapabilities.transportInfo
 			if (transportInfo is WifiInfo) {
 				val rawSsid = transportInfo.ssid
-				Log.d(TAG, "Raw SSID: $rawSsid")
 				if (rawSsid != null && rawSsid != WifiManager.UNKNOWN_SSID) {
-					newSsid = rawSsid.removeSurrounding("\"")
+					currentConnectedSsid = rawSsid.removeSurrounding("\"")
+				} else {
+					Log.d(TAG, "Still connected, reusing old SSID")
 				}
 			}
+		} else {
+			Log.d(TAG, "Not connected to WiFi")
+			currentConnectedSsid = null
 		}
-		currentConnectedSsid = newSsid
 		Log.d(
 			TAG,
-			"Caps changed. Current SSID: $currentConnectedSsid, IsAllowed: $isConnectedToAllowedNetwork. Allowed list: $allowedNetworkSsidsInternal"
+			"Current SSID: $currentConnectedSsid, IsAllowed: $isConnectedToAllowedNetwork. Allowed list: $allowedNetworkSsidsInternal"
 		)
 	}
-
-	// broken- will always return censored network
-//	// Re-evaluates based on current active network and fetched allowed SSIDs
-//	private fun evaluateCurrentConnectionStatus() {
-//		val activeNetwork = connectivityManager?.activeNetwork
-//		val caps = activeNetwork?.let { connectivityManager?.getNetworkCapabilities(it) }
-//		if (caps != null) {
-//			handleCapabilitiesChanged(caps)
-//		} else {
-//			currentConnectedSsid = null
-//			isConnectedToAllowedNetwork = false
-//		}
-//	}
 
 	fun addConnectionStatusListener(listener: (Boolean) -> Unit) {
 		synchronized(listenersLock) {
 			connectionStatusListeners.add(listener)
 		}
-		listener(isConnectedToAllowedNetwork) // Notify immediately with current status
+		listener(isConnectedToAllowedNetwork)
 	}
 
 	fun removeConnectionStatusListener(listener: (Boolean) -> Unit) {
@@ -249,9 +217,7 @@ object WifiMonitorManager {
 
 	fun isCurrentlyConnectedToAllowedNetwork(): Boolean = isConnectedToAllowedNetwork
 
-	fun getCurrentSsidForDebug(): String? = currentConnectedSsid // For debugging if needed
-
-	fun shutdown() {
+	private fun shutdown() {
 		networkCallback?.let {
 			try {
 				connectivityManager?.unregisterNetworkCallback(it)

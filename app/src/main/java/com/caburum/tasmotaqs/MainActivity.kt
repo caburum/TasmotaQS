@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.service.quicksettings.TileService
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import androidx.activity.ComponentActivity
@@ -71,20 +72,28 @@ class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
-		val allPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+		val firstPermissions = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+		val secondPermissions = arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
 
 		val multiplePermissionsContract = ActivityResultContracts.RequestMultiplePermissions()
 		multiplePermissionLauncher = registerForActivityResult(multiplePermissionsContract) {
-//			Log.d("PERMISSIONS", "Launcher result: $it")
-//			if (it.containsValue(false)) {
-//				Log.d("PERMISSIONS", "At least one of the permissions was not granted, launching again...")
-//				multiplePermissionLauncher?.launch(permissions)
-//			}
+			Log.d("PERMISSIONS", "Launcher result: $it")
+			if (it.containsValue(false)) {
+				Log.d("PERMISSIONS", "At least one of the permissions was not granted")
+			} else if (!hasPermissions(secondPermissions)) {
+				Log.d(
+					"PERMISSIONS",
+					"Launching permission launcher for second required permissions"
+				)
+				multiplePermissionLauncher!!.launch(secondPermissions)
+			} else {
+				WifiMonitorManager.initialize(applicationContext)
+			}
 		}
 
-		if (!hasPermissions(allPermissions)) {
-//			Log.d("PERMISSIONS", "Launching multiple contract permission launcher for ALL required permissions")
-			multiplePermissionLauncher!!.launch(allPermissions)
+		if (!hasPermissions(firstPermissions)) {
+			Log.d("PERMISSIONS", "Launching permission launcher for first required permissions")
+			multiplePermissionLauncher!!.launch(firstPermissions)
 		}
 
 		setContent {
@@ -229,10 +238,10 @@ class MainActivity : ComponentActivity() {
 						permission
 					) != PackageManager.PERMISSION_GRANTED
 				) {
-//					Log.d("PERMISSIONS", "Permission is not granted: $permission")
+					Log.d("PERMISSIONS", "Permission is not granted: $permission")
 					return false
 				}
-//				Log.d("PERMISSIONS", "Permission already granted: $permission")
+				Log.d("PERMISSIONS", "Permission already granted: $permission")
 			}
 			return true
 		}

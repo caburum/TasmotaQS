@@ -18,6 +18,15 @@
 	<string name="color_off_short">Cl off</string>
 	<!--	<string name="color_label">Color: </string>-->
 
+	<string name="scheme">Scheme</string>
+	<string name="scheme_single">Single</string>
+	<string name="scheme_cycle">Cycling</string>
+	<string name="scheme_random">Random</string>
+
+	<string name="speed_label">Speed: %1$d</string>
+	<string name="speed_inc">Increase speed</string>
+	<string name="speed_dec">Decrease speed</string>
+
 	<string name="connection_error">Connection error</string>
 	<string name="incorrect_network">Incorrect network</string>
 	<string name="loading">Loading…</string>

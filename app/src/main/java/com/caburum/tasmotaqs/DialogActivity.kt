@@ -8,6 +8,7 @@ import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.SeekBar
@@ -22,6 +23,8 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.slider.Slider
 import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.ColorPickerView
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
@@ -60,14 +63,19 @@ class DialogActivity : ComponentActivity() {
 		var initialColorPower = false
 		var initialColor = Color.WHITE
 		var initialColorBrightness = 0
+		var initialScheme = 0
+		var initialSpeed = 1
 		try {
-			val response = tasmotaManager.doRequestAsync("HSBColor").get()
-			initialWhitePower = response.optString("POWER2") == "ON"
-			initialWhiteTemperature = response.optInt("CT", 153)
-			initialWhiteBrightness = response.optInt("Dimmer2")
-			initialColorPower = response.optString("POWER1") == "ON"
-			initialColor = ("#" + response.optString("Color", "FFFFFF").slice(0..5)).toColorInt()
-			initialColorBrightness = response.optInt("Dimmer1")
+			val response = tasmotaManager.doRequestAsync("Status 11").get()
+			val status = response.optJSONObject("StatusSTS") ?: throw Exception("Invalid response")
+			initialWhitePower = status.optString("POWER2") == "ON"
+			initialWhiteTemperature = status.optInt("CT", 153)
+			initialWhiteBrightness = status.optInt("Dimmer2")
+			initialColorPower = status.optString("POWER1") == "ON"
+			initialColor = ("#" + status.optString("Color", "FFFFFF").slice(0..5)).toColorInt()
+			initialColorBrightness = status.optInt("Dimmer1")
+			initialScheme = status.optInt("Scheme")
+			initialSpeed = status.optInt("Speed")
 		} catch (_: Exception) {
 			// doRequestAsync will have shown an error toast already
 			finish()
@@ -203,7 +211,7 @@ class DialogActivity : ComponentActivity() {
 					colorPickerViewInitCount++
 					return
 				}
-				debounceColorPickerView("Json {\"HSBColor1\":${hsv[0]},\"HSBColor2\":${hsv[1] * 100}}")
+				if (fromUser) debounceColorPickerView("Json {\"HSBColor1\":${hsv[0]},\"HSBColor2\":${hsv[1] * 100}}")
 			}
 		})
 
@@ -220,6 +228,72 @@ class DialogActivity : ComponentActivity() {
 			override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 			override fun onStopTrackingTouch(seekBar: SeekBar?) {}
 		})
+
+		val schemeSpeedWrapper = dialog.findViewById<View>(R.id.schemeSpeedWrapper)
+		val schemeSpeedSlider = dialog.findViewById<Slider>(R.id.schemeSpeedSlider)
+		schemeSpeedSlider.value = initialSpeed.coerceAtMost(10).toFloat() // really goes to 40
+		schemeSpeedSlider.addOnChangeListener { _, value, _ ->
+			tasmotaManager.doRequestAsync("Speed ${value.toInt()}")
+		}
+		schemeSpeedSlider.setLabelFormatter { getString(R.string.speed_label, it.toInt()) }
+
+		var schemeSetup = false
+		var scheme by Delegates.observable(initialScheme) { _, _, it ->
+			colorPickerView.visibility = if (it == 0) View.VISIBLE else View.GONE
+			// todo: only disable hue not saturation
+			schemeSpeedWrapper.visibility = if (it == 0) View.GONE else View.VISIBLE
+			if (!schemeSetup) {
+				// don't call api when initializing
+				schemeSetup = true
+			} else if (it == 0) {
+				// to a color
+				tasmotaManager.doRequestAsync("HSBColor").thenAcceptAsync({
+					colorPickerView.selectByHsvColor(
+						("#" + it.optString("Color", "FFFFFF").slice(0..5)).toColorInt()
+					)
+					try {
+						val hsv = it.optString("HSBColor").split(",").map { c -> c.toFloat() }
+							.toFloatArray()
+						colorPickerBrightnessProgressDrawable.setColors(
+							intArrayOf(
+								Color.BLACK,
+								Color.HSVToColor(floatArrayOf(hsv[0], hsv[1] / 100f, 1f))
+							),
+							null
+						)
+					} catch (_: Exception) {
+					}
+				}, mainThreadExecutor)
+			} else {
+				// to a scheme
+				colorPickerBrightnessProgressDrawable.setColors(
+					intArrayOf(Color.BLACK, Color.WHITE),
+					null
+				)
+			}
+		}
+		scheme = initialScheme
+		val schemeToggleGroup =
+			dialog.findViewById<MaterialButtonToggleGroup>(R.id.schemeToggleGroup)
+		schemeToggleGroup.check(
+			when (initialScheme) {
+				2 -> R.id.schemeCycleButton
+				4 -> R.id.schemeRandomButton
+				else -> R.id.schemeSingleButton
+			}
+		)
+		// add listener after initial update to prevent false request
+		schemeToggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+			if (!isChecked) return@addOnButtonCheckedListener
+			scheme = when (checkedId) {
+				R.id.schemeCycleButton -> 2
+				R.id.schemeRandomButton -> 4
+				else -> 0
+			}
+			tasmotaManager.doRequestAsync("Scheme $scheme").thenRunAsync({
+				colorPower = true
+			}, mainThreadExecutor)
+		}
 
 		val layoutParams = WindowManager.LayoutParams()
 		layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
