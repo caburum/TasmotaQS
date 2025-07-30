@@ -2,6 +2,7 @@ package com.caburum.tasmotaqs
 
 import android.app.Dialog
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
@@ -39,6 +40,8 @@ class DialogActivity : ComponentActivity() {
 	companion object {
 		private const val TAG = "DialogActivity"
 	}
+
+	private lateinit var controlsDivider: View
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
@@ -88,6 +91,9 @@ class DialogActivity : ComponentActivity() {
 			}
 		}
 		dialog.setContentView(R.layout.control_dialog)
+
+		controlsDivider = dialog.findViewById(R.id.controlsDivider)
+		updateDividerVisibility()
 
 		dialog.findViewById<MaterialButton>(R.id.dialog_close).setOnClickListener {
 			dialog.dismiss()
@@ -229,19 +235,19 @@ class DialogActivity : ComponentActivity() {
 			override fun onStopTrackingTouch(seekBar: SeekBar?) {}
 		})
 
-		val schemeSpeedWrapper = dialog.findViewById<View>(R.id.schemeSpeedWrapper)
-		val schemeSpeedSlider = dialog.findViewById<Slider>(R.id.schemeSpeedSlider)
-		schemeSpeedSlider.value = initialSpeed.coerceAtMost(10).toFloat() // really goes to 40
-		schemeSpeedSlider.addOnChangeListener { _, value, _ ->
+		// val speedWrapper = dialog.findViewById<View>(R.id.speedWrapper)
+		val speedSlider = dialog.findViewById<Slider>(R.id.speedSlider)
+		speedSlider.value = initialSpeed.coerceAtMost(10).toFloat() // really goes to 40
+		speedSlider.addOnChangeListener { _, value, _ ->
 			tasmotaManager.doRequestAsync("Speed ${value.toInt()}")
 		}
-		schemeSpeedSlider.setLabelFormatter { getString(R.string.speed_label, it.toInt()) }
+		speedSlider.setLabelFormatter { getString(R.string.speed_label, it.toInt()) }
 
 		var schemeSetup = false
 		var scheme by Delegates.observable(initialScheme) { _, _, it ->
 			colorPickerView.visibility = if (it == 0) View.VISIBLE else View.GONE
 			// todo: only disable hue not saturation
-			schemeSpeedWrapper.visibility = if (it == 0) View.GONE else View.VISIBLE
+			// speedWrapper.visibility = if (it == 0) View.GONE else View.VISIBLE // speed works globally
 			if (!schemeSetup) {
 				// don't call api when initializing
 				schemeSetup = true
@@ -307,6 +313,16 @@ class DialogActivity : ComponentActivity() {
 		}
 
 		dialog.show()
+	}
+
+	override fun onConfigurationChanged(newConfig: Configuration) {
+		super.onConfigurationChanged(newConfig)
+		updateDividerVisibility()
+	}
+
+	private fun updateDividerVisibility() {
+		val isPortrait = resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+		controlsDivider.visibility = if (isPortrait) View.VISIBLE else View.GONE
 	}
 }
 
